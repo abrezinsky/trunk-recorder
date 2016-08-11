@@ -674,7 +674,7 @@ int main(void)
     signal(SIGINT, exit_interupt);
     logging::core::get()->set_filter
     (
-     logging::trivial::severity >= logging::trivial::info
+     logging::trivial::severity >= logging::trivial::trace
      );
 
     tb = gr::make_top_block("Trunking");

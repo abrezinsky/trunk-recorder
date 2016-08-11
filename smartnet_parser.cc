@@ -1,4 +1,6 @@
 #include "smartnet_parser.h"
+#include <stdlib.h>
+#include <boost/log/trivial.hpp>
 
 using namespace std;
 SmartnetParser::SmartnetParser() {
@@ -50,18 +52,35 @@ std::vector<TrunkMessage> SmartnetParser::parse_message(std::string s) {
 	int full_address = atoi( x[0].c_str() );
 	int status = full_address & 0x000F;
 	long address = full_address & 0xFFF0;
-	//int groupflag = atoi( x[1].c_str() );
+	int groupflag = atoi( x[1].c_str() );
 	int command = atoi( x[2].c_str() );
+
+	if (command == OSW_BACKGROUND_IDLE) {
+		messages.push_back(message);
+		return messages;
+	}
+
+        BOOST_LOG_TRIVIAL(trace) << "Received raw message: " << s;
+	BOOST_LOG_TRIVIAL(trace) << "\tfull_address: " <<  full_address;
+	BOOST_LOG_TRIVIAL(trace) << "\tgroupflag: " <<  groupflag;
+	BOOST_LOG_TRIVIAL(trace) << "\tcommand: " <<  command;
+	BOOST_LOG_TRIVIAL(trace) << "\taddress: " << address;
+	BOOST_LOG_TRIVIAL(trace) << "\tstatus: " << status;
+	BOOST_LOG_TRIVIAL(trace) << "\t---------------";
 
 	x.clear();
 	vector<string>().swap(x);
 	if ((address & 0xfc00) == 0x2800) {
 		message.sysid = lastaddress;
 		message.message_type = SYSID;
+	} else if (command == OSW_TY2_AFFILIATION && (lastcmd == OSW_FIRST_NORMAL || lastcmd == OSW_FIRST_ASTRO) ) {
+		// Tracking our radio affiliations
+		BOOST_LOG_TRIVIAL(debug) << "----------- WE HAVE A RADIO AFFILIATION -------\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+		exit(0);
 	} else if (command < 0x2d0) {
 		message.talkgroup = address;
 		message.freq = getfreq(command);
-		if ( lastcmd == 0x308 || lastcmd == 0x321 ) { // Include digital
+		if ( lastcmd == OSW_FIRST_NORMAL || lastcmd == OSW_FIRST_ASTRO ) { // Include digital
 			// Channel Grant
 			message.message_type = GRANT;
 			message.source = lastaddress;
@@ -93,7 +112,7 @@ std::vector<TrunkMessage> SmartnetParser::parse_message(std::string s) {
 			// Call continuation
 			message.message_type = UPDATE;
 		}
-	} else if (command == 0x03c0) {
+	} else if (command == OSW_SYS_STATUS) {
 		message.message_type = STATUS;
 		//parse_status(command, address,groupflag);
 	}
@@ -101,5 +120,15 @@ std::vector<TrunkMessage> SmartnetParser::parse_message(std::string s) {
 	lastaddress = full_address;
 	lastcmd = command;
 	messages.push_back(message);
+
+        BOOST_LOG_TRIVIAL(trace) << "\tMessage Type: " << message.message_type;
+        BOOST_LOG_TRIVIAL(trace) << "\tEncrypted: " << message.encrypted;
+        BOOST_LOG_TRIVIAL(trace) << "\tTDMA: " << message.tdma;
+        BOOST_LOG_TRIVIAL(trace) << "\tSource: " << message.source;
+        BOOST_LOG_TRIVIAL(trace) << "\tSysID: " << message.sysid;
+        BOOST_LOG_TRIVIAL(trace) << "\tEmergency: " << message.emergency;
+        BOOST_LOG_TRIVIAL(trace) << "\tFreq: " << message.freq;
+        BOOST_LOG_TRIVIAL(trace) << "\tTalkGroup: " << message.talkgroup;
+
 	return messages;
 }
